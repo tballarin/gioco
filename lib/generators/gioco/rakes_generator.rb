@@ -31,16 +31,34 @@ namespace :gioco do
       if arg_default
         badge_string = badge_string + 'resources = #{@model_name.capitalize}.find(:all)\n'
         badge_string = badge_string + "resources.each do |r|
-        #{
-        if options[:points] && options[:kinds]
-            "r.points  << Point.create({ :kind_id => kinds.id, :value => \'\#\{args.points\}\'})"
-        elsif options[:points]
-          "r.points = \'\#\{args.points\}\'"
-        end
-        }
+          #{
+          if options[:points] && options[:kinds]
+            'r.points  << Point.create({ kind_id: kinds.id, value: args.points-r.points }) if r.points < args.points'
+          elsif options[:points]
+            'r.points = args.points if r.points < args.points'
+          end
+          }
           r.badges << badge
           r.save!
         end\n"
+      #{if options[:points]
+        "elsif
+          #{if options[:kinds]
+              "badge_string = badge_string + \"resources = #{@model_name.capitalize}
+                .select('#{@model_name.capitalize.constantize.table_name}.*, SUM(points.value) AS kind_points')
+                .where('points.kind_id = ?', kind.id)
+                .having('kind_points >= ?', \#\{args.points\})
+                .group('kind_id, #{@model_name}_id')
+                .joins(:points)\n\""
+            else
+              "badge_string = badge_string + \"resources = #{@model_name.capitalize}
+                .where('points >= ?', args.points)\n\""
+            end}
+          badge_string = badge_string + \"resources.each do |r|
+          r.badges << badge
+          r.save!
+        end\n\""
+      end}
       end
 
       badge_string = badge_string + "puts '> Badge successfully created'"
